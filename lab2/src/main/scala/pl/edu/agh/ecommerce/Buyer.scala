@@ -13,7 +13,7 @@ class Buyer(wallet: Wallet) extends Actor with ActorLogging {
   override def receive: Receive = LoggingReceive {
     case StartBidding(amount, auction) => sendBidIfCanOffer(amount, auction)
     case BidTooLow(previousOffer, minBidAmount) => withdrawLastAndSendNewOffer(previousOffer, minBidAmount, sender())
-    case BidAccepted(offer) => handleActuallyWon(offer)
+    case BidAccepted(offer) => notifyActuallyWon(offer)
     case BidTopped(offer, minBidAmount) => withdrawLastAndSendNewOffer(offer, minBidAmount, sender())
     case AuctionWon(offer) => handleWonAuction(offer, sender())
   }
@@ -31,7 +31,7 @@ class Buyer(wallet: Wallet) extends Actor with ActorLogging {
     sendBidIfCanOffer(minBidAmount, auction)
   }
 
-  private def handleActuallyWon(offer: Offer): Unit = log.info(s"Your offer ${offer} is actually the highest one. Gz!")
+  private def notifyActuallyWon(offer: Offer): Unit = log.info(s"Your offer ${offer} is actually the highest one. Gz!")
 
   private def handleWonAuction(offer: Offer, auction: ActorRef) = {
     wallet confirmExpense offer
