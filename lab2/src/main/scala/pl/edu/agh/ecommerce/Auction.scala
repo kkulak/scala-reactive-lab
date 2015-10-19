@@ -1,13 +1,13 @@
 package pl.edu.agh.ecommerce
 
-import akka.actor.{ActorRef, FSM}
+import akka.actor.{LoggingFSM, ActorRef, FSM}
 import pl.edu.agh.ecommerce.Auction._
 import pl.edu.agh.ecommerce.Buyer.Offer
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.postfixOps
 
-class Auction extends FSM[State, Data] {
+class Auction extends LoggingFSM[State, Data] {
   import context._
 
   startWith(Idle, Uninitialized)
@@ -37,7 +37,7 @@ class Auction extends FSM[State, Data] {
       }
     case Event(BidTimerExpired, p:AuctionInProgress) =>
       scheduleDeleteTimer(p.timerConf.deleteTimerTimeout)
-      lastWinner(p.offers) foreach { winner => winner.buyer ! AuctionWon(winner.offer) }
+      p.offers.head.buyer ! AuctionWon(p.offers.head.offer)
       goto(Sold) using AuctionSold(p.timerConf, p.offers.head)
   }
 
@@ -83,11 +83,6 @@ class Auction extends FSM[State, Data] {
   private def notifyPreviousWinnerAboutGazump(previousBestOffer: Option[BuyerOffer], currentBestOffer: Offer, conf: AuctionConf) = previousBestOffer match {
     case Some(buyerOffer) => buyerOffer.buyer ! BidTopped(buyerOffer.offer, nextMin(currentBestOffer.amount, conf))
     case _ =>
-  }
-
-  private def lastWinner(previousOffers: List[BuyerOffer]) = previousOffers match {
-    case Nil => None
-    case x :: xs => Some(x)
   }
 
 }
