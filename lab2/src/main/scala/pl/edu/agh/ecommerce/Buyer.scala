@@ -3,13 +3,14 @@ package pl.edu.agh.ecommerce
 import java.util.UUID
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
+import akka.event.LoggingReceive
 import pl.edu.agh.ecommerce.Auction._
 import pl.edu.agh.ecommerce.Buyer._
 
 class Buyer(wallet: Wallet) extends Actor with ActorLogging {
   var wonAuctions: Set[AuctionInfo] = Set()
 
-  override def receive: Receive = {
+  override def receive: Receive = LoggingReceive {
     case StartBidding(amount, auction) => sendBidIfCanOffer(amount, auction)
     case BidTooLow(previousOffer, minBidAmount) => withdrawLastAndSendNewOffer(previousOffer, minBidAmount, sender())
     case BidAccepted(offer) => handleActuallyWon(offer)
@@ -18,7 +19,6 @@ class Buyer(wallet: Wallet) extends Actor with ActorLogging {
   }
 
   private def sendBidIfCanOffer(amount: BigDecimal, auction: ActorRef): Unit = {
-    log.info("Trying to send bid")
     if(wallet canAfford amount) {
       val offerId = UUID.randomUUID().toString
       wallet.markPotentialExpense(Offer(offerId, amount))
@@ -37,8 +37,7 @@ class Buyer(wallet: Wallet) extends Actor with ActorLogging {
     wallet confirmExpense offer
     val auctionInfo = AuctionInfo(offer, auction)
     wonAuctions += auctionInfo
-    log.info(s"You've won an auction ${auctionInfo}. Gz!")
-  }  
+  }
 
 }
 
