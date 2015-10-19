@@ -1,91 +1,94 @@
 package pl.edu.agh.ecommerce
 
-import akka.actor.{Actor, ActorLogging, ActorRef}
-import akka.event.LoggingReceive
+import akka.actor.{ActorRef, FSM}
 import pl.edu.agh.ecommerce.Auction._
 import pl.edu.agh.ecommerce.Buyer.Offer
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.postfixOps
 
-class Auction(initialPrice: BigDecimal, bidStep: BigDecimal, conf: Conf) extends Actor with ActorLogging {
+class Auction extends FSM[State, Data] {
   import context._
 
-  var bids: List[BuyerOffer] = List()
+  startWith(Idle, Uninitialized)
 
-  override def receive: Receive = LoggingReceive {
-    case StartBidTimer => startAuction()
+  when(Idle) {
+    case Event(StartAuction(timerConf: TimerConf, auctionConf: AuctionConf), Uninitialized) =>
+      scheduleBidTimer(timerConf.bidTimerTimeout)
+      goto(Created) using AuctionAwaiting(timerConf, auctionConf)
   }
 
-  private def startAuction() = {
-    scheduleBidTimer()
-    become(created)
+  when(Created) {
+    case Event(Bid(offer), p: AuctionAwaiting) =>
+      handleOffer(offer, sender(), None, p.auctionConf) match {
+        case Some(buyerOffer) => goto(Activated) using AuctionInProgress(p.timerConf, p.auctionConf, List(buyerOffer))
+        case None => stay()
+      }
+    case Event(BidTimerExpired, p: AuctionAwaiting) =>
+      scheduleDeleteTimer(p.timerConf.deleteTimerTimeout)
+      goto(Ignored) using AuctionIgnored(p.timerConf, p.auctionConf)
   }
 
-  private def scheduleBidTimer() = system.scheduler.scheduleOnce(conf.bidTimerTimeout, self, BidTimerExpired)
-
-  def created: Receive = LoggingReceive {
-    case Bid(offer) => handleOffer(offer, sender()) foreach (_ => become(activated))
-    case BidTimerExpired => scheduleDeleteTimerAndBecomeIgnored()
+  when(Activated) {
+    case Event(Bid(offer), p: AuctionInProgress) =>
+      handleOffer(offer, sender(), Some(p.offers.head), p.auctionConf) match {
+        case Some(buyerOffer) => stay using AuctionInProgress(p.timerConf, p.auctionConf, buyerOffer :: p.offers)
+        case None => stay()
+      }
+    case Event(BidTimerExpired, p:AuctionInProgress) =>
+      scheduleDeleteTimer(p.timerConf.deleteTimerTimeout)
+      lastWinner(p.offers) foreach { winner => winner.buyer ! AuctionWon(winner.offer) }
+      goto(Sold) using AuctionSold(p.timerConf, p.offers.head)
   }
 
-  private def scheduleDeleteTimerAndBecomeIgnored() = {
-    scheduleDeleteTimer()
-    become(ignored)
+  when(Ignored) {
+    case Event(DeleteTimerExpired, p: AuctionIgnored) =>
+      stop()
+    case Event(Relist, p: AuctionIgnored) =>
+      goto(Created) using AuctionAwaiting(p.timerConf, p.auctionConf)
   }
 
-  private def scheduleDeleteTimer() = system.scheduler.scheduleOnce(conf.deleteTimerTimeout, self, DeleteTimerExpired)
+  when(Sold) {
+    case Event(DeleteTimerExpired, p: AuctionSold) =>
+      stop()
+  }
 
-  private def handleOffer(offer: Offer, buyer: ActorRef) = {
-    if(exceedsCurrentMaxOffer(offer)) {
-      bids = BuyerOffer(offer, buyer) :: bids
+  private def scheduleBidTimer(timeout: FiniteDuration) = system.scheduler.scheduleOnce(timeout, self, BidTimerExpired)
+
+  private def scheduleDeleteTimer(timeout: FiniteDuration) = system.scheduler.scheduleOnce(timeout, self, DeleteTimerExpired)
+
+  private def handleOffer(offer: Offer, buyer: ActorRef, bestCurrentOffer: Option[BuyerOffer], conf: AuctionConf) = {
+    if(exceedsCurrentMaxOffer(offer, bestCurrentOffer, conf)) {
       buyer ! BidAccepted(offer)
-      notifyPreviousWinnerAboutGazump()
+      notifyPreviousWinnerAboutGazump(bestCurrentOffer, offer, conf)
       Some(BuyerOffer(offer, buyer))
     } else {
-      buyer ! BidTooLow(offer, nextMin())
+      buyer ! BidTooLow(offer, nextMin(currentMax(bestCurrentOffer, conf), conf))
       None
     }
   }
 
-  def ignored: Receive = LoggingReceive {
-    case DeleteTimerExpired => stop(self)
-    case Relist => startAuction()
-  }
+  private def currentMax(bestCurrentOffer: Option[BuyerOffer], conf: AuctionConf) =
+    bestCurrentOffer match {
+      case Some(buyerOffer) => buyerOffer.offer.amount
+      case None => conf.initialPrice
+    }
 
-  def activated: Receive = LoggingReceive {
-    case Bid(offer) => handleOffer(offer, sender())
-    case BidTimerExpired => scheduleDeleteTimerAndBecomeSold()
-  }
+  private def exceedsCurrentMaxOffer(offer: Offer, bestCurrentOffer: Option[BuyerOffer], conf: AuctionConf): Boolean =
+    offer.amount >= currentMax(bestCurrentOffer, conf)
 
-  private def scheduleDeleteTimerAndBecomeSold() = {
-    scheduleDeleteTimer()
-    lastWinner() foreach { winner => winner.buyer ! AuctionWon(winner.offer) }
-    become(sold)
-  }
+  private def nextMin(bestCurrentOffer: BigDecimal, conf: AuctionConf): BigDecimal =
+    bestCurrentOffer + conf.bidStep
 
-  def sold: Receive = LoggingReceive {
-    case DeleteTimerExpired => stop(self)
-  }
-
-  private def nextMin(): BigDecimal = currentMaxOffer() + bidStep
-
-  private def exceedsCurrentMaxOffer(offer: Offer): Boolean = offer.amount >= nextMin()
-
-  private def notifyPreviousWinnerAboutGazump() = bids match {
-    case x :: (xs :: xy) => xs.buyer ! BidTopped(xs.offer, nextMin())
+  private def notifyPreviousWinnerAboutGazump(previousBestOffer: Option[BuyerOffer], currentBestOffer: Offer, conf: AuctionConf) = previousBestOffer match {
+    case Some(buyerOffer) => buyerOffer.buyer ! BidTopped(buyerOffer.offer, nextMin(currentBestOffer.amount, conf))
     case _ =>
   }
 
-  private def lastWinner() = bids match {
+  private def lastWinner(previousOffers: List[BuyerOffer]) = previousOffers match {
     case Nil => None
     case x :: xs => Some(x)
   }
-
-  private def currentMaxOffer(): BigDecimal =
-    lastWinner()
-    .map(w => w.offer.amount)
-    .getOrElse(initialPrice)
 
 }
 
@@ -96,11 +99,26 @@ object Auction {
   case class BidAccepted(offer: Offer)
   case class BidTopped(offer: Offer, minBidAmount: BigDecimal)
   case class AuctionWon(offer: Offer)
-  case object StartBidTimer
+  case class StartAuction(timerConf: TimerConf, auctionConf: AuctionConf)
   case object BidTimerExpired
   case object DeleteTimerExpired
   case object Relist
 
   case class BuyerOffer(offer: Offer, buyer: ActorRef)
-  case class Conf(bidTimerTimeout: FiniteDuration, deleteTimerTimeout: FiniteDuration)
+  case class TimerConf(bidTimerTimeout: FiniteDuration, deleteTimerTimeout: FiniteDuration)
+  case class AuctionConf(initialPrice: BigDecimal, bidStep: BigDecimal)
 }
+
+sealed trait State
+case object Idle extends State
+case object Created extends State
+case object Activated extends State
+case object Ignored extends State
+case object Sold extends State
+
+sealed trait Data
+case object Uninitialized extends Data
+case class AuctionAwaiting(timerConf: TimerConf, auctionConf: AuctionConf) extends Data
+case class AuctionInProgress(timerConf: TimerConf, auctionConf: AuctionConf, offers: List[BuyerOffer]) extends Data
+case class AuctionSold(timerConf: TimerConf, bestOffer: BuyerOffer) extends Data
+case class AuctionIgnored(timerConf: TimerConf, auctionConf: AuctionConf) extends Data

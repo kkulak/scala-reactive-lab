@@ -1,7 +1,7 @@
 package pl.edu.agh.ecommerce
 
 import akka.actor.{Props, ActorRef, Actor}
-import pl.edu.agh.ecommerce.Auction.{StartBidTimer, Conf, StartBidding}
+import pl.edu.agh.ecommerce.Auction.{AuctionConf, TimerConf, StartAuction, StartBidding}
 import pl.edu.agh.ecommerce.Initializer.Initialize
 import scala.concurrent.duration._
 
@@ -12,15 +12,15 @@ class Initializer extends Actor {
   }
 
   private def initialize(): Unit = {
-    val firstAuction: ActorRef = context.actorOf(Props(new Auction(BigDecimal(10), BigDecimal(5), Conf(5 seconds, 10 seconds))), "auction1")
-    val secondAuction: ActorRef = context.actorOf(Props(new Auction(BigDecimal(100), BigDecimal(1), Conf(10 seconds, 3 seconds))), "auction2")
+    val firstAuction: ActorRef = context.actorOf(Props[Auction], "auction1")
+    val secondAuction: ActorRef = context.actorOf(Props[Auction], "auction2")
 
     val firstBuyer: ActorRef = context.actorOf(Props(new Buyer(new Wallet(BigDecimal(500)))), "buyer1")
     val secondBuyer: ActorRef = context.actorOf(Props(new Buyer(new Wallet(BigDecimal(600)))), "buyer2")
     val thirdBuyer: ActorRef = context.actorOf(Props(new Buyer(new Wallet(BigDecimal(200)))), "buyer3")
 
-    firstAuction ! StartBidTimer
-    secondAuction ! StartBidTimer
+    firstAuction ! StartAuction(TimerConf(20 seconds, 10 seconds), AuctionConf(BigDecimal(100), BigDecimal(5)))
+    secondAuction ! StartAuction(TimerConf(30 seconds, 5 seconds), AuctionConf(BigDecimal(300), BigDecimal(30)))
 
     firstBuyer ! StartBidding(BigDecimal(0), firstAuction)
     firstBuyer ! StartBidding(BigDecimal(1), secondAuction)
