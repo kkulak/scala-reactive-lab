@@ -3,7 +3,6 @@ package pl.edu.agh.ecommerce
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import akka.event.LoggingReceive
 import pl.edu.agh.ecommerce.Auction._
-import scala.concurrent.duration._
 import pl.edu.agh.ecommerce.Buyer.Offer
 
 import scala.concurrent.duration.FiniteDuration
@@ -23,7 +22,7 @@ class Auction(initialPrice: BigDecimal, bidStep: BigDecimal, conf: Conf) extends
     become(created)
   }
 
-  private def scheduleBidTimer() = system.scheduler.schedule(0 seconds, conf.bidTimerTimeout, self, BidTimerExpired)
+  private def scheduleBidTimer() = system.scheduler.scheduleOnce(conf.bidTimerTimeout, self, BidTimerExpired)
 
   def created: Receive = LoggingReceive {
     case Bid(offer) => handleOffer(offer, sender()) foreach (_ => become(activated))
@@ -35,7 +34,7 @@ class Auction(initialPrice: BigDecimal, bidStep: BigDecimal, conf: Conf) extends
     become(ignored)
   }
 
-  private def scheduleDeleteTimer() = system.scheduler.schedule(0 seconds, conf.deleteTimerTimeout, self, DeleteTimerExpired)
+  private def scheduleDeleteTimer() = system.scheduler.scheduleOnce(conf.deleteTimerTimeout, self, DeleteTimerExpired)
 
   private def handleOffer(offer: Offer, buyer: ActorRef) = {
     if(exceedsCurrentMaxOffer(offer)) {
@@ -75,6 +74,7 @@ class Auction(initialPrice: BigDecimal, bidStep: BigDecimal, conf: Conf) extends
 
   private def notifyPreviousWinnerAboutGazump() = bids match {
     case x :: (xs :: xy) => xs.buyer ! BidTopped(xs.offer, nextMin())
+    case _ =>
   }
 
   private def lastWinner() = bids match {
