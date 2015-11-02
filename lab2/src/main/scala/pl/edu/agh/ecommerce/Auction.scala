@@ -1,8 +1,9 @@
 package pl.edu.agh.ecommerce
 
-import akka.actor.{LoggingFSM, ActorRef, FSM}
+import akka.actor.{ActorRef, LoggingFSM}
 import pl.edu.agh.ecommerce.Auction._
 import pl.edu.agh.ecommerce.Buyer.Offer
+import pl.edu.agh.ecommerce.Seller.AuctionCompleted
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.postfixOps
@@ -15,37 +16,38 @@ class Auction extends LoggingFSM[State, Data] {
   when(Idle) {
     case Event(StartAuction(timerConf: TimerConf, auctionConf: AuctionConf), Uninitialized) =>
       scheduleBidTimer(timerConf.bidTimerTimeout)
-      goto(Created) using AuctionAwaiting(timerConf, auctionConf)
+      goto(Created) using AuctionAwaiting(timerConf, auctionConf, sender())
   }
 
   when(Created) {
     case Event(Bid(offer), p: AuctionAwaiting) =>
       handleOffer(offer, sender(), None, p.auctionConf) match {
-        case Some(buyerOffer) => goto(Activated) using AuctionInProgress(p.timerConf, p.auctionConf, List(buyerOffer))
+        case Some(buyerOffer) => goto(Activated) using AuctionInProgress(p.timerConf, p.auctionConf, p.seller, List(buyerOffer))
         case None => stay()
       }
     case Event(BidTimerExpired, p: AuctionAwaiting) =>
       scheduleDeleteTimer(p.timerConf.deleteTimerTimeout)
-      goto(Ignored) using AuctionIgnored(p.timerConf, p.auctionConf)
+      goto(Ignored) using AuctionIgnored(p.timerConf, p.auctionConf, p.seller)
   }
 
   when(Activated) {
     case Event(Bid(offer), p: AuctionInProgress) =>
       handleOffer(offer, sender(), Some(p.offers.head), p.auctionConf) match {
-        case Some(buyerOffer) => stay using AuctionInProgress(p.timerConf, p.auctionConf, buyerOffer :: p.offers)
+        case Some(buyerOffer) => stay using AuctionInProgress(p.timerConf, p.auctionConf, p.seller, buyerOffer :: p.offers)
         case None => stay()
       }
     case Event(BidTimerExpired, p:AuctionInProgress) =>
       scheduleDeleteTimer(p.timerConf.deleteTimerTimeout)
       p.offers.head.buyer ! AuctionWon(p.offers.head.offer)
-      goto(Sold) using AuctionSold(p.timerConf, p.offers.head)
+      p.seller ! AuctionCompleted(self)
+      goto(Sold) using AuctionSold(p.timerConf, p.seller, p.offers.head)
   }
 
   when(Ignored) {
     case Event(DeleteTimerExpired, p: AuctionIgnored) =>
       stop()
     case Event(Relist, p: AuctionIgnored) =>
-      goto(Created) using AuctionAwaiting(p.timerConf, p.auctionConf)
+      goto(Created) using AuctionAwaiting(p.timerConf, p.auctionConf, p.seller)
   }
 
   when(Sold) {
@@ -89,7 +91,6 @@ class Auction extends LoggingFSM[State, Data] {
 
 object Auction {
   case class Bid(offer: Offer)
-  case class StartBidding(amount: BigDecimal, auction: ActorRef)
   case class BidTooLow(offer: Offer, minBidAmount: BigDecimal)
   case class BidAccepted(offer: Offer)
   case class BidTopped(offer: Offer, minBidAmount: BigDecimal)
@@ -113,7 +114,7 @@ case object Sold extends State
 
 sealed trait Data
 case object Uninitialized extends Data
-case class AuctionAwaiting(timerConf: TimerConf, auctionConf: AuctionConf) extends Data
-case class AuctionInProgress(timerConf: TimerConf, auctionConf: AuctionConf, offers: List[BuyerOffer]) extends Data
-case class AuctionSold(timerConf: TimerConf, bestOffer: BuyerOffer) extends Data
-case class AuctionIgnored(timerConf: TimerConf, auctionConf: AuctionConf) extends Data
+case class AuctionAwaiting(timerConf: TimerConf, auctionConf: AuctionConf, seller: ActorRef) extends Data
+case class AuctionInProgress(timerConf: TimerConf, auctionConf: AuctionConf, seller: ActorRef, offers: List[BuyerOffer]) extends Data
+case class AuctionSold(timerConf: TimerConf, seller: ActorRef, bestOffer: BuyerOffer) extends Data
+case class AuctionIgnored(timerConf: TimerConf, auctionConf: AuctionConf, seller: ActorRef) extends Data
