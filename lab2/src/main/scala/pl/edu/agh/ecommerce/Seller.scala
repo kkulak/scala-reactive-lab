@@ -6,7 +6,7 @@ import pl.edu.agh.ecommerce.Auction._
 import pl.edu.agh.ecommerce.AuctionSearch.{Deregister, Register}
 import pl.edu.agh.ecommerce.Seller.RegisterAndStartAuction
 
-class Seller(auctionFactory: (ActorRefFactory, TimerConf, AuctionConf) => ActorRef) extends Actor with ActorLogging {
+class Seller(auctionFactory: ActorRefFactory => ActorRef) extends Actor with ActorLogging {
   var auctions: List[ActorRef] = List()
 
   override def receive: Receive = LoggingReceive {
@@ -17,7 +17,7 @@ class Seller(auctionFactory: (ActorRefFactory, TimerConf, AuctionConf) => ActorR
   }
 
   private def registerAndStartAuction(title: String, timerConf: TimerConf, auctionConf: AuctionConf): Unit = {
-    val auction = auctionFactory(context, timerConf, auctionConf)
+    val auction = auctionFactory(context)
     auctions = auction :: auctions
     auctionSearch ! Register(auction, title)
     auction ! StartAuction(timerConf, auctionConf)

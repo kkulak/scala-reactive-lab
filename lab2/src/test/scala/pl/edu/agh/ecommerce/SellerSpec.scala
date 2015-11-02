@@ -1,11 +1,12 @@
 package pl.edu.agh.ecommerce
 
 import akka.actor._
-import akka.testkit.{TestActors, TestProbe, ImplicitSender, TestKit}
+import akka.testkit.{ImplicitSender, TestActors, TestKit, TestProbe}
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, WordSpecLike}
-import pl.edu.agh.ecommerce.Auction.{AuctionWithoutOfferFinished, AuctionWonBy, AuctionConf, TimerConf}
+import pl.edu.agh.ecommerce.Auction.{AuctionConf, AuctionWithoutOfferFinished, AuctionWonBy, TimerConf}
 import pl.edu.agh.ecommerce.AuctionSearch.{Deregister, Register}
 import pl.edu.agh.ecommerce.Seller.RegisterAndStartAuction
+
 import scala.concurrent.duration._
 
 class SellerSpec extends TestKit(ActorSystem("SellerSpec"))
@@ -27,7 +28,7 @@ class SellerSpec extends TestKit(ActorSystem("SellerSpec"))
     auctionSearch = new TestProbe(customActorSystem)
     auction = new TestProbe(customActorSystem)
 
-    val auctionFactory = (f: ActorRefFactory, t: TimerConf, a: AuctionConf) => auction.ref
+    val auctionFactory = (f: ActorRefFactory) => auction.ref
     seller = customActorSystem.actorOf(Props(classOf[Seller], auctionFactory))
     customActorSystem.actorOf(TestActors.forwardActorProps(auctionSearch.ref), "auction-search")
   }
