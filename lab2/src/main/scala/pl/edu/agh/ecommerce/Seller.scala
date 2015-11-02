@@ -2,9 +2,9 @@ package pl.edu.agh.ecommerce
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.event.LoggingReceive
-import pl.edu.agh.ecommerce.Auction.{AuctionConf, StartAuction, TimerConf}
+import pl.edu.agh.ecommerce.Auction.{AuctionConf, AuctionWonBy, StartAuction, TimerConf}
 import pl.edu.agh.ecommerce.AuctionSearch.{Deregister, Register}
-import pl.edu.agh.ecommerce.Seller.{AuctionCompleted, RegisterAndStartAuction}
+import pl.edu.agh.ecommerce.Seller.RegisterAndStartAuction
 
 class Seller extends Actor with ActorLogging {
   var auctions: List[ActorRef] = List()
@@ -12,7 +12,7 @@ class Seller extends Actor with ActorLogging {
   override def receive: Receive = LoggingReceive {
     case RegisterAndStartAuction(title, timerConf, auctionConf) =>
       registerAndStartAuction(title, timerConf, auctionConf)
-    case AuctionCompleted(auction) => deregisterAuction(auction)
+    case AuctionWonBy(offer, buyer) => deregisterAuction(sender())
   }
 
   private def registerAndStartAuction(title: String, timerConf: TimerConf, auctionConf: AuctionConf): Unit = {
@@ -33,5 +33,4 @@ class Seller extends Actor with ActorLogging {
 
 object Seller {
   case class RegisterAndStartAuction(title: String, timerConf: TimerConf, auctionConf: AuctionConf)
-  case class AuctionCompleted(auction: ActorRef)
 }

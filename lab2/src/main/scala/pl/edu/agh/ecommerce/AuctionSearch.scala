@@ -30,11 +30,10 @@ class AuctionSearch extends Actor with ActorLogging {
   }
 
   private def findMatchingAndNotifySender(key: String, sender: ActorRef): Unit = {
-    val matchingAuctions = auctions filter {
-      p => p.title.split("\\s+").contains(key)
-    } map {
-      a => a.auction
-    }
+    val matchingAuctions = auctions
+      .filter(p => p.title.split("\\s+").contains(key))
+      .map(a => a.auction)
+
     sender ! QueryResult(matchingAuctions)
   }
 

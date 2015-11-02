@@ -3,7 +3,6 @@ package pl.edu.agh.ecommerce
 import akka.actor.{ActorRef, LoggingFSM}
 import pl.edu.agh.ecommerce.Auction._
 import pl.edu.agh.ecommerce.Buyer.Offer
-import pl.edu.agh.ecommerce.Seller.AuctionCompleted
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.postfixOps
@@ -27,6 +26,7 @@ class Auction extends LoggingFSM[State, Data] {
       }
     case Event(BidTimerExpired, p: AuctionAwaiting) =>
       scheduleDeleteTimer(p.timerConf.deleteTimerTimeout)
+      p.seller ! AuctionWithoutOfferFinished
       goto(Ignored) using AuctionIgnored(p.timerConf, p.auctionConf, p.seller)
   }
 
@@ -39,7 +39,7 @@ class Auction extends LoggingFSM[State, Data] {
     case Event(BidTimerExpired, p:AuctionInProgress) =>
       scheduleDeleteTimer(p.timerConf.deleteTimerTimeout)
       p.offers.head.buyer ! AuctionWon(p.offers.head.offer)
-      p.seller ! AuctionCompleted(self)
+      p.seller ! AuctionWonBy(p.offers.head.offer, p.offers.head.buyer)
       goto(Sold) using AuctionSold(p.timerConf, p.seller, p.offers.head)
   }
 
@@ -80,7 +80,8 @@ class Auction extends LoggingFSM[State, Data] {
     offer.amount >= currentMax(bestCurrentOffer, conf)
 
   private def nextMin(bestCurrentOffer: BigDecimal, conf: AuctionConf): BigDecimal =
-    bestCurrentOffer + conf.bidStep
+    if(bestCurrentOffer == conf.initialPrice) conf.initialPrice
+    else bestCurrentOffer + conf.bidStep
 
   private def notifyPreviousWinnerAboutGazump(previousBestOffer: Option[BuyerOffer], currentBestOffer: Offer, conf: AuctionConf) = previousBestOffer match {
     case Some(buyerOffer) => buyerOffer.buyer ! BidTopped(buyerOffer.offer, nextMin(currentBestOffer.amount, conf))
@@ -95,6 +96,8 @@ object Auction {
   case class BidAccepted(offer: Offer)
   case class BidTopped(offer: Offer, minBidAmount: BigDecimal)
   case class AuctionWon(offer: Offer)
+  case class AuctionWonBy(offer: Offer, buyer: ActorRef)
+  case object AuctionWithoutOfferFinished
   case class StartAuction(timerConf: TimerConf, auctionConf: AuctionConf)
   case object BidTimerExpired
   case object DeleteTimerExpired
