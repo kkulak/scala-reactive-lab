@@ -1,22 +1,23 @@
 package pl.edu.agh.ecommerce
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.actor._
 import akka.event.LoggingReceive
-import pl.edu.agh.ecommerce.Auction.{AuctionConf, AuctionWonBy, StartAuction, TimerConf}
+import pl.edu.agh.ecommerce.Auction._
 import pl.edu.agh.ecommerce.AuctionSearch.{Deregister, Register}
 import pl.edu.agh.ecommerce.Seller.RegisterAndStartAuction
 
-class Seller extends Actor with ActorLogging {
+class Seller(auctionFactory: (ActorRefFactory, TimerConf, AuctionConf) => ActorRef) extends Actor with ActorLogging {
   var auctions: List[ActorRef] = List()
 
   override def receive: Receive = LoggingReceive {
     case RegisterAndStartAuction(title, timerConf, auctionConf) =>
       registerAndStartAuction(title, timerConf, auctionConf)
     case AuctionWonBy(offer, buyer) => deregisterAuction(sender())
+    case AuctionWithoutOfferFinished => deregisterAuction(sender())
   }
 
   private def registerAndStartAuction(title: String, timerConf: TimerConf, auctionConf: AuctionConf): Unit = {
-    val auction = context.actorOf(Props[Auction])
+    val auction = auctionFactory(context, timerConf, auctionConf)
     auctions = auction :: auctions
     auctionSearch ! Register(auction, title)
     auction ! StartAuction(timerConf, auctionConf)

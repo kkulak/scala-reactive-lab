@@ -1,6 +1,6 @@
 package pl.edu.agh.ecommerce
 
-import akka.actor.{Actor, ActorRef, Props}
+import akka.actor.{Actor, ActorRef, ActorRefFactory, Props}
 import pl.edu.agh.ecommerce.Auction.{AuctionConf, TimerConf}
 import pl.edu.agh.ecommerce.Buyer.StartBidding
 import pl.edu.agh.ecommerce.Initializer.Initialize
@@ -17,7 +17,9 @@ class Initializer extends Actor {
   private def initialize(): Unit = {
     context.actorOf(Props[AuctionSearch], "auction-search")
 
-    val seller = context.actorOf(Props[Seller], "global-seller")
+    val auctionFactory = (f: ActorRefFactory, t: TimerConf, a: AuctionConf) => f.actorOf(Props(classOf[Auction], t, a))
+    val seller = context.actorOf(Props(classOf[Seller], auctionFactory), "global-seller")
+
     seller ! RegisterAndStartAuction("Audi A6", TimerConf(20 seconds, 10 seconds), AuctionConf(BigDecimal(100), BigDecimal(5)))
     seller ! RegisterAndStartAuction("Audi A4", TimerConf(30 seconds, 5 seconds), AuctionConf(BigDecimal(300), BigDecimal(30)))
 

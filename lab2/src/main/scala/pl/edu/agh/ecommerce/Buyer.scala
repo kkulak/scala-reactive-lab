@@ -56,20 +56,20 @@ class Buyer(wallet: Wallet) extends Actor with ActorLogging {
 }
 
 class Wallet(var moneyAmount: BigDecimal) {
-  var potentialExpenses: Set[Offer] = Set()
+  var potentialExpenses: List[Offer] = List()
 
   def canAfford(amount: BigDecimal): Boolean = moneyAmount - sumOfPotentialExpenses() - amount >= BigDecimal(0)
 
   def markPotentialExpense(offer: Offer): Unit = {
-    potentialExpenses = potentialExpenses + offer
+    potentialExpenses = offer :: potentialExpenses
   }
 
   def withdrawPotentialExpense(offer: Offer): Unit = {
-    potentialExpenses = potentialExpenses - offer
+    potentialExpenses = potentialExpenses filterNot { o => o == offer }
   }
 
   def confirmExpense(offer: Offer): Unit = {
-    potentialExpenses -= offer
+    withdrawPotentialExpense(offer)
     moneyAmount -= offer.amount
   }
 
