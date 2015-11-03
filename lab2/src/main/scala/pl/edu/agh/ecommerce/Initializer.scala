@@ -15,7 +15,6 @@ class Initializer extends Actor {
   }
 
   private def initialize(): Unit = {
-    context.actorOf(Props[AuctionSearch], "auction-search")
 
     val auctionFactory = (f: ActorRefFactory) => f.actorOf(Props[Auction])
     val seller = context.actorOf(Props(classOf[Seller], auctionFactory), "global-seller")
