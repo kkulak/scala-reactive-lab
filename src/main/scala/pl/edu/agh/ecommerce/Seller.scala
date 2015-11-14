@@ -2,7 +2,7 @@ package pl.edu.agh.ecommerce
 
 import akka.actor._
 import akka.event.LoggingReceive
-import pl.edu.agh.ecommerce.Auction._
+import pl.edu.agh.ecommerce.AuctionCommands._
 import pl.edu.agh.ecommerce.AuctionSearch.{Deregister, Register}
 import pl.edu.agh.ecommerce.Seller.RegisterAndStartAuction
 
@@ -16,7 +16,7 @@ class Seller(auctionFactory: ActorRefFactory => ActorRef) extends Actor with Act
     case AuctionWithoutOfferFinished => deregisterAuction(sender())
   }
 
-  private def registerAndStartAuction(title: String, timerConf: TimerConf, auctionConf: AuctionConf): Unit = {
+  private def registerAndStartAuction(title: String, timerConf: TimerConf, auctionConf: AuctionParams): Unit = {
     val auction = auctionFactory(context)
     auctions = auction :: auctions
     auctionSearch ! Register(auction, title)
@@ -33,5 +33,5 @@ class Seller(auctionFactory: ActorRefFactory => ActorRef) extends Actor with Act
 }
 
 object Seller {
-  case class RegisterAndStartAuction(title: String, timerConf: TimerConf, auctionConf: AuctionConf)
+  case class RegisterAndStartAuction(title: String, timerConf: TimerConf, auctionConf: AuctionParams)
 }

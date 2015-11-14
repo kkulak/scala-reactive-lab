@@ -3,7 +3,7 @@ package pl.edu.agh.ecommerce
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestActors, TestKit, TestProbe}
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, WordSpecLike}
-import pl.edu.agh.ecommerce.Auction.{AuctionConf, AuctionWithoutOfferFinished, AuctionWonBy, TimerConf}
+import pl.edu.agh.ecommerce.AuctionCommands.{AuctionWithoutOfferFinished, AuctionWonBy, AuctionParams, TimerConf}
 import pl.edu.agh.ecommerce.AuctionSearch.{Deregister, Register}
 import pl.edu.agh.ecommerce.Seller.RegisterAndStartAuction
 
@@ -15,7 +15,7 @@ class SellerSpec extends TestKit(ActorSystem("SellerSpec"))
   var seller: ActorRef = _
   var title: String = _
   var timerConf: TimerConf = _
-  var auctionConf: AuctionConf = _
+  var auctionConf: AuctionParams = _
   var auctionSearch: TestProbe = _
   var auction: TestProbe = _
 
@@ -24,7 +24,7 @@ class SellerSpec extends TestKit(ActorSystem("SellerSpec"))
 
     title = "Some title"
     timerConf = TimerConf(bidTimerTimeout = 10 seconds, deleteTimerTimeout = 5 seconds)
-    auctionConf = AuctionConf(initialPrice = BigDecimal(100), bidStep = BigDecimal(10))
+    auctionConf = AuctionParams(initialPrice = BigDecimal(100), bidStep = BigDecimal(10))
     auctionSearch = new TestProbe(customActorSystem)
     auction = new TestProbe(customActorSystem)
 

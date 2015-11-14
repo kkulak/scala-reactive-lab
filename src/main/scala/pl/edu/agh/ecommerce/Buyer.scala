@@ -4,7 +4,7 @@ import java.util.UUID
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import akka.event.LoggingReceive
-import pl.edu.agh.ecommerce.Auction._
+import pl.edu.agh.ecommerce.AuctionCommands._
 import pl.edu.agh.ecommerce.AuctionSearch.{QueryResult, Search}
 import pl.edu.agh.ecommerce.Buyer._
 

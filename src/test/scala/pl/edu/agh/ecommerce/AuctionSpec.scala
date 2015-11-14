@@ -1,9 +1,9 @@
 package pl.edu.agh.ecommerce
 
-import akka.actor.{Props, ActorRef, ActorSystem}
-import akka.testkit.{TestProbe, ImplicitSender, TestKit}
-import org.scalatest.{BeforeAndAfterEach, BeforeAndAfterAll, WordSpecLike}
-import pl.edu.agh.ecommerce.Auction._
+import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.testkit.{ImplicitSender, TestKit, TestProbe}
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, WordSpecLike}
+import pl.edu.agh.ecommerce.AuctionCommands._
 import pl.edu.agh.ecommerce.Buyer.Offer
 
 import scala.concurrent.duration._
@@ -14,13 +14,13 @@ class AuctionSpec extends TestKit(ActorSystem("AuctionSpec"))
 
   var auction: ActorRef = _
   var timerConf: TimerConf = _
-  var auctionConf: AuctionConf = _
+  var auctionConf: AuctionParams = _
   var buyer: TestProbe = _
 
   override protected def beforeEach(): Unit = {
-    auction = system.actorOf(Props[Auction])
+    auction = system.actorOf(Auction.props())
     timerConf = TimerConf(bidTimerTimeout = 10 seconds, deleteTimerTimeout = 20 seconds)
-    auctionConf = AuctionConf(initialPrice = BigDecimal(100), bidStep = BigDecimal(20))
+    auctionConf = AuctionParams(initialPrice = BigDecimal(100), bidStep = BigDecimal(20))
     buyer = TestProbe()
   }
 

@@ -1,9 +1,9 @@
 package pl.edu.agh.ecommerce
 
-import akka.actor.{ActorRef, Props, ActorSystem}
+import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
-import org.scalatest.{BeforeAndAfterEach, WordSpecLike, BeforeAndAfterAll}
-import pl.edu.agh.ecommerce.AuctionSearch.{Deregister, Register, QueryResult, Search}
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, WordSpecLike}
+import pl.edu.agh.ecommerce.AuctionSearch.{Deregister, QueryResult, Register, Search}
 
 class AuctionSearchSpec extends TestKit(ActorSystem("AuctionSearchSpec"))
   with WordSpecLike with BeforeAndAfterAll with BeforeAndAfterEach with ImplicitSender {
@@ -30,8 +30,8 @@ class AuctionSearchSpec extends TestKit(ActorSystem("AuctionSearchSpec"))
 
     "respond with valid list of auctions on query" in {
       // given
-      val firstActor = system.actorOf(Props[Auction])
-      val secondActor = system.actorOf(Props[Auction])
+      val firstActor = system.actorOf(Auction.props())
+      val secondActor = system.actorOf(Auction.props())
 
       auctionSearch ! Register(firstActor, "Audi A6")
       auctionSearch ! Register(secondActor, "Audi A8")
@@ -46,8 +46,8 @@ class AuctionSearchSpec extends TestKit(ActorSystem("AuctionSearchSpec"))
 
     "respond with valid list of auctions after unregistering some of them" in {
       // given
-      val firstActor = system.actorOf(Props[Auction])
-      val secondActor = system.actorOf(Props[Auction])
+      val firstActor = system.actorOf(Auction.props())
+      val secondActor = system.actorOf(Auction.props())
 
       auctionSearch ! Register(firstActor, "Audi A6")
       auctionSearch ! Register(secondActor, "Audi A8")
