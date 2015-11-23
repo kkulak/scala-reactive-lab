@@ -1,14 +1,23 @@
 package pl.edu.agh.ecommerce
 
+import akka.actor.SupervisorStrategy.Restart
 import akka.actor._
 import akka.event.LoggingReceive
 import pl.edu.agh.ecommerce.Notifier.Notification
 
-class Notifier(publisherFactory: ActorRefFactory => ActorSelection) extends Actor {
+import scala.concurrent.duration._
+
+class Notifier(publisherFactory: ActorRefFactory => ActorSelection) extends Actor with ActorLogging {
 
   override def receive: Receive = LoggingReceive {
-    case e: Notification => publisherFactory(context) ! e
+    case payload: Notification =>
+      context.actorOf(NotifierRequest.props(publisherFactory, payload))
   }
+
+  override val supervisorStrategy =
+    OneForOneStrategy(maxNrOfRetries = 100, withinTimeRange = 20 seconds) {
+      case _: Exception => Restart
+    }
 
 }
 
