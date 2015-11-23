@@ -1,6 +1,6 @@
 package pl.edu.agh.ecommerce
 
-import akka.actor.{Actor, ActorLogging, ActorRef}
+import akka.actor.{Props, Actor, ActorLogging, ActorRef}
 import akka.event.LoggingReceive
 import pl.edu.agh.ecommerce.AuctionSearch._
 
@@ -40,6 +40,9 @@ class AuctionSearch extends Actor with ActorLogging {
 }
 
 object AuctionSearch {
+
+  def props(): Props = Props[AuctionSearch]
+
   case class AuctionRef(auction: ActorRef, title: String)
   case class Register(auction: ActorRef, title: String)
   case class Deregister(auction: ActorRef)

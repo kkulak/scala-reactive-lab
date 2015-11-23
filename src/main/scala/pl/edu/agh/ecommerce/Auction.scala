@@ -3,19 +3,20 @@ package pl.edu.agh.ecommerce
 import java.time.LocalDateTime
 import java.util.UUID
 
-import akka.actor.{Props, ActorRef}
+import akka.actor.{ActorRef, Props}
 import akka.persistence.fsm.PersistentFSM
 import pl.edu.agh.ecommerce.AuctionCommands._
 import pl.edu.agh.ecommerce.AuctionData._
 import pl.edu.agh.ecommerce.AuctionEvents._
 import pl.edu.agh.ecommerce.AuctionStates._
 import pl.edu.agh.ecommerce.Buyer.Offer
+import pl.edu.agh.ecommerce.Notifier.{AuctionFinishedWithWinner, AuctionFinishedWithoutWinner, OfferAccepted}
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.postfixOps
 import scala.reflect.ClassTag
 
-class Auction(id: String) extends PersistentFSM[AuctionState, AuctionData, AuctionEvent] {
+class Auction(id: String, notifier: ActorRef) extends PersistentFSM[AuctionState, AuctionData, AuctionEvent] {
   import context._
 
   override def domainEventClassTag: ClassTag[AuctionEvent] = ClassTag(classOf[AuctionEvent])
@@ -42,6 +43,7 @@ class Auction(id: String) extends PersistentFSM[AuctionState, AuctionData, Aucti
         case _ =>
           scheduleDeleteTimer(p.conf.timer.deleteTimerTimeout)
           p.seller ! AuctionWithoutOfferFinished
+          notifier ! AuctionFinishedWithoutWinner(p.conf.params.title)
       }
   }
 
@@ -57,6 +59,7 @@ class Auction(id: String) extends PersistentFSM[AuctionState, AuctionData, Aucti
           scheduleDeleteTimer(p.conf.timer.deleteTimerTimeout)
           p.offers.head.buyer ! AuctionWon(p.offers.head.offer)
           p.seller ! AuctionWonBy(p.offers.head.offer, p.offers.head.buyer)
+          notifier ! AuctionFinishedWithWinner(p.conf.params.title, p.offers.head.buyer, p.offers.head.offer.amount)
       }
   }
 
@@ -124,6 +127,7 @@ class Auction(id: String) extends PersistentFSM[AuctionState, AuctionData, Aucti
   private def handleOffer(offer: Offer, buyer: ActorRef, bestCurrentOffer: Option[BuyerOffer], conf: AuctionParams) = {
     if(exceedsCurrentMaxOffer(offer, bestCurrentOffer, conf)) {
       buyer ! BidAccepted(offer)
+      notifier ! OfferAccepted(conf.title, buyer, offer.amount)
       notifyPreviousWinnerAboutGazump(bestCurrentOffer, offer, conf)
       Some(BuyerOffer(offer, buyer))
     } else {
@@ -153,5 +157,6 @@ class Auction(id: String) extends PersistentFSM[AuctionState, AuctionData, Aucti
 }
 
 object Auction {
-  def props(): Props = Props(classOf[Auction], UUID.randomUUID().toString)
+  def props(notifier: ActorRef): Props = props(UUID.randomUUID().toString, notifier)
+  def props(id: String, notifier: ActorRef): Props = Props(classOf[Auction], id, notifier)
 }
