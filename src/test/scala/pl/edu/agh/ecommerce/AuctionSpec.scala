@@ -20,7 +20,7 @@ class AuctionSpec extends TestKit(ActorSystem("AuctionSpec"))
   override protected def beforeEach(): Unit = {
     auction = system.actorOf(Auction.props())
     timerConf = TimerConf(bidTimerTimeout = 10 seconds, deleteTimerTimeout = 20 seconds)
-    auctionConf = AuctionParams(initialPrice = BigDecimal(100), bidStep = BigDecimal(20))
+    auctionConf = AuctionParams(title = "Audi A6", initialPrice = BigDecimal(100), bidStep = BigDecimal(20))
     buyer = TestProbe()
   }
 

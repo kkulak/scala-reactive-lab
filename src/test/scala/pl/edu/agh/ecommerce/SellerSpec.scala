@@ -22,9 +22,8 @@ class SellerSpec extends TestKit(ActorSystem("SellerSpec"))
   override protected def beforeEach(): Unit = {
     val customActorSystem = ActorSystem("test-actor-system")
 
-    title = "Some title"
     timerConf = TimerConf(bidTimerTimeout = 10 seconds, deleteTimerTimeout = 5 seconds)
-    auctionConf = AuctionParams(initialPrice = BigDecimal(100), bidStep = BigDecimal(10))
+    auctionConf = AuctionParams(title = "Some title", initialPrice = BigDecimal(100), bidStep = BigDecimal(10))
     auctionSearch = new TestProbe(customActorSystem)
     auction = new TestProbe(customActorSystem)
 
@@ -41,37 +40,37 @@ class SellerSpec extends TestKit(ActorSystem("SellerSpec"))
 
     "register actor in auction search registry" in {
       // when
-      seller ! RegisterAndStartAuction(title, timerConf, auctionConf)
+      seller ! RegisterAndStartAuction(timerConf, auctionConf)
 
       // then
-      auctionSearch.expectMsg(Register(auction.ref, title))
+      auctionSearch.expectMsg(Register(auction.ref, auctionConf.title))
     }
 
     "deregister actor in auction search registry given aution with winner" in {
       // given
       val buyer = TestProbe()
-      seller ! RegisterAndStartAuction(title, timerConf, auctionConf)
+      seller ! RegisterAndStartAuction(timerConf, auctionConf)
 
       // when
       seller.tell(AuctionWonBy(null, buyer.ref), auction.ref)
 
       // then
       auctionSearch.expectMsgAllOf(
-        Register(auction.ref, title),
+        Register(auction.ref, auctionConf.title),
         Deregister(auction.ref)
       )
     }
 
     "deregister actor in auction search registry given auction without winner" in {
       // given
-      seller ! RegisterAndStartAuction(title, timerConf, auctionConf)
+      seller ! RegisterAndStartAuction(timerConf, auctionConf)
 
       // when
       seller.tell(AuctionWithoutOfferFinished, auction.ref)
 
       // then
       auctionSearch.expectMsgAllOf(
-        Register(auction.ref, title),
+        Register(auction.ref, auctionConf.title),
         Deregister(auction.ref)
       )
     }

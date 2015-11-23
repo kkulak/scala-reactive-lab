@@ -25,7 +25,7 @@ object AuctionCommands {
 
   case class BuyerOffer(offer: Offer, buyer: ActorRef)
   case class TimerConf(bidTimerTimeout: FiniteDuration, deleteTimerTimeout: FiniteDuration)
-  case class AuctionParams(initialPrice: BigDecimal, bidStep: BigDecimal)
+  case class AuctionParams(title: String, initialPrice: BigDecimal, bidStep: BigDecimal)
 }
 
 object AuctionStates {

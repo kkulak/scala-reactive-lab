@@ -10,16 +10,16 @@ class Seller(auctionFactory: ActorRefFactory => ActorRef) extends Actor with Act
   var auctions: List[ActorRef] = List()
 
   override def receive: Receive = LoggingReceive {
-    case RegisterAndStartAuction(title, timerConf, auctionConf) =>
-      registerAndStartAuction(title, timerConf, auctionConf)
+    case RegisterAndStartAuction(timerConf, auctionConf) =>
+      registerAndStartAuction(timerConf, auctionConf)
     case AuctionWonBy(offer, buyer) => deregisterAuction(sender())
     case AuctionWithoutOfferFinished => deregisterAuction(sender())
   }
 
-  private def registerAndStartAuction(title: String, timerConf: TimerConf, auctionConf: AuctionParams): Unit = {
+  private def registerAndStartAuction(timerConf: TimerConf, auctionConf: AuctionParams): Unit = {
     val auction = auctionFactory(context)
     auctions = auction :: auctions
-    auctionSearch ! Register(auction, title)
+    auctionSearch ! Register(auction, auctionConf.title)
     auction ! StartAuction(timerConf, auctionConf)
   }
 
@@ -33,5 +33,5 @@ class Seller(auctionFactory: ActorRefFactory => ActorRef) extends Actor with Act
 }
 
 object Seller {
-  case class RegisterAndStartAuction(title: String, timerConf: TimerConf, auctionConf: AuctionParams)
+  case class RegisterAndStartAuction(timerConf: TimerConf, auctionConf: AuctionParams)
 }

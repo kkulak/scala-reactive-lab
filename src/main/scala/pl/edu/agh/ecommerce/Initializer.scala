@@ -19,8 +19,8 @@ class Initializer extends Actor {
     val auctionFactory = (f: ActorRefFactory) => f.actorOf(Auction.props())
     val seller = context.actorOf(Props(classOf[Seller], auctionFactory), "global-seller")
 
-    seller ! RegisterAndStartAuction("Audi A6", TimerConf(20 seconds, 10 seconds), AuctionParams(BigDecimal(100), BigDecimal(5)))
-    seller ! RegisterAndStartAuction("Audi A4", TimerConf(30 seconds, 5 seconds), AuctionParams(BigDecimal(300), BigDecimal(30)))
+    seller ! RegisterAndStartAuction(TimerConf(20 seconds, 10 seconds), AuctionParams("Audi A6", BigDecimal(100), BigDecimal(5)))
+    seller ! RegisterAndStartAuction(TimerConf(30 seconds, 5 seconds), AuctionParams("Audi A4", BigDecimal(300), BigDecimal(30)))
 
     val firstBuyer: ActorRef = context.actorOf(Props(new Buyer(new Wallet(BigDecimal(500)))), "buyer1")
     val secondBuyer: ActorRef = context.actorOf(Props(new Buyer(new Wallet(BigDecimal(600)))), "buyer2")
